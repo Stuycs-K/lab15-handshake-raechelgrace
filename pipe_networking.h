@@ -27,12 +27,9 @@ int server_handshake(int *to_client);
 int client_handshake(int *to_server);
 
 //for basic & persistent servers
-int server_connect(int from_client);
+// int server_connect(int from_client);
 
 //for forking server
 int server_setup();
-
-//multi_server
-int multi_server_setup();
 
 #endif

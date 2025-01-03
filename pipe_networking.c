@@ -19,17 +19,17 @@ int err(){
 int server_setup() {
   int from_client = 0;
   // make WKP
-  from_client = mkfifo(WKP, 0644); // er,,,.
-  if (from_client==-1) err();
+  if (mkfifo(WKP, 0644)==-1) err();
 
   // open wkp.[blocks]
-  int open_wkp = open(from_client,  O_RDONLY, 0644); // i dont know about perms
-  if (open_wkp==-1) err();
+  from_client = open(WKP, O_RDONLY); // 0644 or no?
+  if (from_client==-1) err();
+  printf("server setup done: created WKP, waiting for client\n");
 
   // step 3 in client
 
   // remove the wkp
-  remove(WKP);
+  remove(WKP); // here??x
 
   return from_client;
 }
@@ -43,27 +43,38 @@ int server_setup() {
 
   returns the file descriptor for the upstream pipe (see server setup).
   =========================*/
-int server_handshake(int *to_client) { // im confused... do i use to_server or to_client for wkp and pp? :P to_client = pp...?
+int server_handshake(int *to_client) { 
   int from_client;
 
   // calls server_setup();
-  server_setup();
+  from_client = server_setup();
 
-  // server reading SYN (pid)
-  int my_syn = getpid();
+  // server reading SYN (pid) from the client (match w step 3)
+  char pid[HANDSHAKE_BUFFER_SIZE];
+  int read_pid = read(from_client,pid,HANDSHAKE_BUFFER_SIZE);
+  if (read_pid==-1) err();
+  printf("received private pipe name (the pid/syn): %s\n",pid);
 
   // server opening private pipe [unblock client]
-  from_client = open("pp",  O_WRONLY | O_CREAT, 0600); // i dont know about flags here
-  if (from_client==-1) err();
+  *to_client = open(pid,  O_WRONLY);
+  if (*to_client==-1) err();
+  printf("opened private pipe %s\n",pid);
 
   // server send syn_ack
-  int w = write(from_client, my_syn, 64);
+  int syn_ack = 134340; // just a random num to send to pp
+  int w = write(*to_client, &syn_ack, sizeof(syn_ack));
   if (w==-1) err();
 
   // step 8 in client
 
-  // server received ack, handshake complete
+  // server read ack from client (step 8), handshake complete
+  int ack;
+  int r = read(from_client, &ack, sizeof(ack)); // read from client to ack
+  if (r==-1) err();
+  printf("server received final ack %d\n",ack);
+
   // end server_handshake()
+  printf("%d should equal %d + 1\n", ack, syn_ack);
 
   return from_client;
 }
@@ -82,30 +93,49 @@ int client_handshake(int *to_server) { // im confused... do i use to_server or t
   int from_server;
 
   // at step 3, make private pipe
-  int pp = mkfifo("pp", 0644);
-  if (pp == -1) err();
-
-  int pp_pid;
-  if (pp == 0) pp_pid = getpid();
+  char pp[HANDSHAKE_BUFFER_SIZE];
+  sprintf(pp, "%d", getpid()); // gives pp the PID as a string
+  int make = mkfifo(pp, 0644);
+  if (make == -1) err();
+  printf("client created private pipe %s\n", pp);
 
   // open wkp[unblock server]
-  int open_wkp = open(WKP,  O_WRONLY | O_CREAT | O_TRUNC, 0600); // i dont know about flags here
-  if (open_wkp==-1) err();
+  *to_server = open(WKP, O_WRONLY);
+  if (*to_server==-1) err();
+  printf("client opened WKP\n");
 
   // client writing pp to wkp (match w step 5)
-  int w = write(open_wkp, pp_pid, 64);
+  int w = write(*to_server, &pp, HANDSHAKE_BUFFER_SIZE);
   if (w == -1) err();
+  printf("client wrote pp to wkp, the client pid\n");
+
+  // client opening PP [BLOCKS]
+  from_server = open(pp, O_RDONLY);
+  if (from_server == -1) err();
+  printf("client opened pp\n");
 
   // step 8, client deleting pp
   int r = remove(pp);
   if (r==-1) err();
+  printf("client removed pp\n");
 
-  // client reading syn_ack (matches w step 7)
+  // client reading syn_ack (matches w step 7), random number to add 1 to
+  int syn_ack;
+  int re = read(from_server, &syn_ack, sizeof(syn_ack));
+  if (re==-1) err();
+  printf("client received syn_ack\n");
 
-  // client sending (matches w step 9) ACK
+  // client sending (matches w step 9) ACK, add 1
+  int ack = syn_ack+1;
+  int wr = write(*to_server, &ack, sizeof(ack));
+  if (wr==-1) err();
+  printf("client sent new ack (+1)\n");
+
+  printf("handshake done \n");
 
   // end
   return from_server;
 }
 
+// make half handshake for forking server. all 3 servers should work with the same client (??)
 
