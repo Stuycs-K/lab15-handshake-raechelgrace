@@ -22,14 +22,14 @@ int server_setup() {
   if (mkfifo(WKP, 0644)==-1) err();
 
   // open wkp.[blocks]
-  from_client = open(WKP, O_RDONLY); // 0644 or no?
+  from_client = open(WKP, O_RDONLY);
   if (from_client==-1) err();
   printf("server setup done: created WKP, waiting for client\n");
 
   // step 3 in client
 
   // remove the wkp
-  remove(WKP); // here??x
+  remove(WKP);
 
   return from_client;
 }
@@ -131,6 +131,8 @@ int client_handshake(int *to_server) { // im confused... do i use to_server or t
   if (wr==-1) err();
   printf("client sent new ack (+1)\n");
 
+  remove(pp); // for cleanliness
+
   printf("handshake done \n");
 
   // end
@@ -138,4 +140,4 @@ int client_handshake(int *to_server) { // im confused... do i use to_server or t
 }
 
 // make half handshake for forking server. all 3 servers should work with the same client (??)
-
+// eererer 15135 15150 and such are still there. remove pp or no?
