@@ -25,5 +25,5 @@ pipe_networking.o: pipe_networking.c pipe_networking.h
 	gcc -c pipe_networking.c
 
 clean:
-	rm -f *.o 
+	rm -f *.o basic_client client persistant_server basic_server server
 	rm -f *~
