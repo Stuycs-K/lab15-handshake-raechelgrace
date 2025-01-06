@@ -1,15 +1,7 @@
+#include "pipe_networking.h"
 /*
 This server fork to handle multiple concurrent connections.
 
-Fork to create a subserver which will handle the client.
-Go back to step 1.
-A subserver should:
-
-Complete the 3-way handshake.
-Handle all commucations with the server.
-Notice the server steps 1-3 are all contained in the server setup command! Your server sets up the handshake, but your subserver actually does the rest of the handshake.
-
-Your server will server_setup() and your sub-server will finish the job with server_handshake_half()
 
 To provide some communication, after the handshake:
 
@@ -23,6 +15,24 @@ You can spawn 2 or more clients, each of which should be printing data every sec
 
 
 */
+int server_setup() {
+  int from_client = 0;
+  // make WKP
+  if (mkfifo(WKP, 0644)==-1) perror("making WKP failed");
+
+  // open wkp.[blocks]
+  from_client = open(WKP, O_RDONLY);
+  if (from_client==-1) err();
+  printf("server setup done: created WKP, waiting for client\n");
+
+  // step 3 in client
+
+  // remove the wkp
+  remove(WKP);
+
+  return from_client;
+}
+
 
 #include "pipe_networking.h"
 
@@ -38,16 +48,19 @@ static void sighandler(int signo){
     }
 }
 
-server_handshake_half(int *to_client, int from_client){
+void server_handshake_half(int *to_client, int from_client){
+
     // read from client and respond to client
     char rec[HANDSHAKE_BUFFER_SIZE];
+
     int read_rec = read(from_client,rec,HANDSHAKE_BUFFER_SIZE);
-    if (read_rec==-1) err();
+    if (read_rec==-1) perror("reading error");
     printf("received from client: %s\n",rec);
 
-    char* send = "hi back"; // ?
-    int wr = write(*to_client, send, sizeof(send));
-    if (wr==-1) err();
+    char* send = "returning handshake!"; // ?
+    int wr = write(*to_client, send, sizeof(send)+1);
+    if (wr==-1) perror("writing error");
+    printf("subserver handshake complete!\n");
 
 }
 
@@ -55,38 +68,40 @@ server_handshake_half(int *to_client, int from_client){
 int main() {
     int from_client;
     int to_client;
+    pid_t p;
 
     // for signals
     signal(SIGPIPE, sighandler);
     signal(SIGINT, sighandler);
 
-    srand(getpid());
-    int x;
+    while(1){ // loop the steps
+        // create the WKP, await connection, upon connection remove the WKP.
+        from_client = server_setup(); // handled by server setup
 
-    // create the WKP
-    if (mkfifo(WKP, 0644)==-1) err();
+        // Fork to create a subserver which will handle the client.
+        p = fork();
 
-    // upon connection remove the WKP.
-    remove(WKP);
+        if (p == 0){ // child, handle the client (like basic server)
 
-    // Fork to create a subserver which will handle the client.
-    // stuff... and things...
+            // Complete the 3-way handshake.
+            server_handshake_half(&to_client, from_client);
 
+            char buff[300];
+            // read continuously, receive string from client
+            while(read(from_client, buff, sizeof(buff))>0){
+                printf("subserver received: %s\n", buff);
+                sleep(1);
 
-    while(1){ // until ctrl c, so forever
+                // echo string to client
+                write(to_client, buff, sizeof(buff)+1);
+                printf("server echo to client: %s\n",buff);
+            }
+            printf("client disconnected.\n");
+            close(from_client);
+            close(to_client);
+            exit(0);
 
-        // inside now, to handle continous client connections
-        from_client = server_handshake( &to_client );
-    
-        // for each client
-        while(1){
-            x = rand()%(100+1); // random number in the range [0,100]
-            if(write(to_client, &x, sizeof(x)) == -1) break;
-            printf("Sent %d to client\n", x);
-            sleep(1);
         }
-        close(from_client);
-        close(to_client);
-        printf("Disconnected.\n");
     }
+    return 0;
 }

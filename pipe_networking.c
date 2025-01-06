@@ -33,7 +33,7 @@ int server_setup() {
 
   return from_client;
 }
-
+ 
 /*=========================
   server_handshake 
   args: int * to_client
@@ -89,7 +89,7 @@ int server_handshake(int *to_client) {
 
   returns the file descriptor for the downstream pipe.
   =========================*/
-int client_handshake(int *to_server) { // im confused... do i use to_server or to_client for wkp and pp? :P to_server = WKP...?
+int client_handshake(int *to_server) {
   int from_server;
 
   // at step 3, make private pipe
