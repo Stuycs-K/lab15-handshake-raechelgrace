@@ -140,4 +140,3 @@ int client_handshake(int *to_server) { // im confused... do i use to_server or t
 }
 
 // make half handshake for forking server. all 3 servers should work with the same client (??)
-// eererer 15135 15150 and such are still there. remove pp or no?

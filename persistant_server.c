@@ -13,6 +13,7 @@ static void sighandler(int signo){
     if (signo == SIGINT){
         remove(WKP);
         printf("Removed WKP and closed files.");
+        exit(0);
     }
     if (signo == SIGPIPE){
         printf("Disconnected.\n");
@@ -39,7 +40,7 @@ int main() {
         // for each client
         while(1){
             x = rand()%(100+1); // random number in the range [0,100]
-            write(to_client, &x, sizeof(x));
+            if(write(to_client, &x, sizeof(x)) == -1) break;
             printf("Sent %d to client\n", x);
             sleep(1);
         }

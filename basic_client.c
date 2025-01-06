@@ -15,6 +15,6 @@ int main() {
       printf("Disconnected,\n");
       break;
     }
-    printf("Received %d from client\n", x);
+    printf("Received %d from server\n", x);
   }
 }
