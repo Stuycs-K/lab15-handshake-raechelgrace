@@ -12,22 +12,16 @@ If you ctrl-c the client or the server they should both exit gracefully.
 int main() {
   int to_client;
   int from_client;
-  srand(time(NULL));
+  srand(getpid());
   int x;
 
-  while(1){ // until ctrl c, so forever
+  from_client = server_handshake( &to_client );
 
-  // idk what's happening icl i have to figure this out later
-  
-    x = (rand()%(100+1)); // random number in the range [0,100]
-    // use write to send 
-    int w = write(to_client, x, sizeof(x));
-    if (w==-1) err();
-    from_client = server_handshake( &to_client );
+  while(1){ // until ctrl c, so forever
+    x = rand()%(100+1); // random number in the range [0,100]
+    write(to_client, &x, sizeof(x));
+    printf("Sent %d to client\n", x);
     sleep(1);
   }
-
-  // code here
-
-  // sighandling??
+  printf("Disconnected.\n");
 }
