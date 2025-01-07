@@ -1,6 +1,6 @@
 .PHONY: client server compile
 
-compile: client server
+compile: client_work forking_server
 
 client: client_work
 	./client_work

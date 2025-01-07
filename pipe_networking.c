@@ -138,5 +138,3 @@ int client_handshake(int *to_server) {
   // end
   return from_server;
 }
-
-// make half handshake for forking server. all 3 servers should work with the same client (??)

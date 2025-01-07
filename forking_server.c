@@ -1,38 +1,7 @@
 #include "pipe_networking.h"
 /*
-This server fork to handle multiple concurrent connections.
-
-
-To provide some communication, after the handshake:
-
-Modify the client + subserver to allow multiple requests per connection.
-Do this by sending a string to the server and get responses every second (use sleep(1) after recieving your message, print the result.)
-You can test by spawning multiple clients and verifying they all can maintain communication with the subservers
-
-The end result should be one server that processes client input from any number of clients.
-
-You can spawn 2 or more clients, each of which should be printing data every second.
-
-
+This server forks to handle multiple concurrent connections.
 */
-int server_setup() {
-  int from_client = 0;
-  // make WKP
-  if (mkfifo(WKP, 0644)==-1) perror("making WKP failed");
-
-  // open wkp.[blocks]
-  from_client = open(WKP, O_RDONLY);
-  if (from_client==-1) err();
-  printf("server setup done: created WKP, waiting for client\n");
-
-  // step 3 in client
-
-  // remove the wkp
-  remove(WKP);
-
-  return from_client;
-}
-
 
 #include "pipe_networking.h"
 
@@ -40,7 +9,6 @@ int server_setup() {
 static void sighandler(int signo){
     if (signo == SIGINT){
         remove(WKP);
-        printf("Removed WKP and closed files.");
         exit(0);
     }
     if (signo == SIGPIPE){
@@ -50,17 +18,20 @@ static void sighandler(int signo){
 
 void server_handshake_half(int *to_client, int from_client){
 
-    // read from client and respond to client
-    char rec[HANDSHAKE_BUFFER_SIZE];
-
-    int read_rec = read(from_client,rec,HANDSHAKE_BUFFER_SIZE);
+    // read from client
+    char pp[HANDSHAKE_BUFFER_SIZE];
+    int read_rec = read(from_client,pp,HANDSHAKE_BUFFER_SIZE);
     if (read_rec==-1) perror("reading error");
-    printf("received from client: %s\n",rec);
+    printf("received from client: %s\n",pp);
 
-    char* send = "returning handshake!"; // ?
-    int wr = write(*to_client, send, sizeof(send)+1);
+    // open private pipe
+    *to_client = open(pp, O_WRONLY);
+    if (*to_client==-1) perror("private pipe opening didnt work");
+
+    char* send = "returning handshake!\n"; // ?
+    int wr = write(*to_client, send, strlen(send)+1);
     if (wr==-1) perror("writing error");
-    printf("subserver handshake complete!\n");
+    printf("subserver %d handshake complete!\n", getpid());
 
 }
 
@@ -88,20 +59,34 @@ int main() {
 
             char buff[300];
             // read continuously, receive string from client
-            while(read(from_client, buff, sizeof(buff))>0){
+            while(1){
+                int read_client = read(from_client, buff, sizeof(buff));
+                if (read_client<=0){
+                    printf("client disconnected.\n");
+                    close(from_client);
+                    close(to_client);
+                    exit(0);
+                }
                 printf("subserver received: %s\n", buff);
+
+                // send message back to client !!
+                int w = write(to_client, buff, strlen(buff)+1);
+                if (w==-1){
+                    break;
+                }
+                printf("server echoed back to to client: %s\n",buff);
+
                 sleep(1);
-
-                // echo string to client
-                write(to_client, buff, sizeof(buff)+1);
-                printf("server echo to client: %s\n",buff);
             }
-            printf("client disconnected.\n");
+        }
+        else{ // parent process!
             close(from_client);
-            close(to_client);
-            exit(0);
-
         }
     }
+    close(from_client);
+    close(to_client);
     return 0;
+    
 }
+
+// stopping doesnt work... breaks the server
